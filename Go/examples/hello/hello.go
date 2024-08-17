@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"time"
 	"xpc"
 )
@@ -12,13 +12,20 @@ func main() {
 		panic(err)
 	}
 
-	h := xpc.Host{
+	conn, err := xpc.Dial(xpc.Host{
 		XPHost:  "localhost",
 		XPPort:  49009,
 		Timeout: timeout,
-	}
+	})
 
-	if err := xpc.Hello(h); err != nil {
-		log.Fatal(err)
+	for {
+		ctrl, err := xpc.GetCTRL(conn, 0)
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Printf("Elevator: %.4f	Aileron: %.4f	Rudder: %.4f\n", ctrl.Elevator, ctrl.Aileron, ctrl.Rudder)
+
+		time.Sleep(100 * time.Millisecond)
 	}
 }
