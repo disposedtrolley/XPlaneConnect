@@ -887,8 +887,12 @@ namespace XPC
 		memcpy(&view_type, buffer + 5, 4);
 		
 		// set view by calling the corresponding key stroke
-		XPLMCommandKeyStroke(view_type);
-		
+        // TODO: We need a mapping between the previously-used keystroke IDs and command names.
+        //       Right now, let's make sure this works by hardcoding a view direction.
+//        XPLMCommandKeyStroke(view_type);
+        XPLMCommandOnce(XPLMFindCommand("sim/view/back"));
+
+        return;
 		
 		VIEW_TYPE viewRunway = VIEW_TYPE::XPC_VIEW_RUNWAY;
 		VIEW_TYPE viewChase	 = VIEW_TYPE::XPC_VIEW_CHASE;
