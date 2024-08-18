@@ -8,6 +8,11 @@ import (
 	"go.einride.tech/pid"
 )
 
+var (
+	AltitudeHold = true
+	AltitudeFeet = 2000.0
+)
+
 func main() {
 	conn, err := xpc.Dial(xpc.Host{
 		XPHost:  "localhost",
@@ -24,8 +29,8 @@ func main() {
 	ticker := time.NewTicker(samplingInterval)
 
 	P := 0.05
-	I := P / 50
-	D := 0.01
+	I := P / 5
+	D := P / 5
 
 	pitchSetpoint := 1.0
 	pitch := pid.Controller{
@@ -45,12 +50,30 @@ func main() {
 		},
 	}
 
+	altitude := pid.Controller{
+		Config: pid.ControllerConfig{
+			ProportionalGain: P,
+			IntegralGain:     I,
+			DerivativeGain:   D,
+		},
+	}
+
 	for {
 		select {
 		case <-ticker.C:
 			posi, err := xpc.GetPOSI(conn, 0)
 			if err != nil {
 				panic(err)
+			}
+
+			if AltitudeHold {
+				altitude.Update(pid.ControllerInput{
+					ReferenceSignal:  AltitudeFeet,
+					ActualSignal:     posi.Altitude * 3.281,
+					SamplingInterval: samplingInterval,
+				})
+
+				pitchSetpoint = xpc.Clamp(altitude.State.ControlSignal, -15, 10)
 			}
 
 			pitch.Update(pid.ControllerInput{
@@ -76,8 +99,8 @@ func main() {
 				panic(err)
 			}
 
-			fmt.Printf("PITCH: %.2f -> %.2f	ROLL: %.2f -> %.2f\n",
-				posi.Pitch, pitch.State.ControlSignal, posi.Roll, roll.State.ControlSignal)
+			fmt.Printf("PITCH: %.2f -> %.2f	ROLL: %.2f -> %.2f	ALT: %.2f -> %.2f\n",
+				posi.Pitch, pitch.State.ControlSignal, posi.Roll, roll.State.ControlSignal, posi.Altitude*3.281, altitude.State.ControlSignal)
 		}
 	}
 }

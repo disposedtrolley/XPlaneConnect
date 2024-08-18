@@ -174,3 +174,15 @@ func GetPOSI(conn *Conn, aircraft uint) (pos POSI, err error) {
 
 	return r.POSI, nil
 }
+
+func Clamp(value, min, max float64) float64 {
+	if value > max {
+		return max
+	}
+
+	if value < min {
+		return min
+	}
+
+	return value
+}
