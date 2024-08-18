@@ -108,3 +108,21 @@ func GetCTRL(conn *Conn, aircraft uint) (ctrl CTRL, err error) {
 
 	return r.CTRL, nil
 }
+
+func SendCTRL(conn *Conn, ctrl *CTRL) error {
+	type reqPacked struct {
+		Command   string `struc:"[4]uint8,little"`
+		Padding__ byte   `struc:"pad"`
+		CTRL
+	}
+
+	var reqBuf bytes.Buffer
+	if err := struc.Pack(&reqBuf, &reqPacked{
+		Command: "CTRL",
+		CTRL:    *ctrl,
+	}); err != nil {
+		return fmt.Errorf("pack request: %w", err)
+	}
+
+	return conn.Write(reqBuf.Bytes())
+}
