@@ -66,7 +66,7 @@ type CTRL struct {
 	Aileron    float32 `struc:"float32,little"`
 	Rudder     float32 `struc:"float32,little"`
 	Throttle   float32 `struc:"float32,little"`
-	Gear       int     `struc:"int8"`
+	Gear       int8    `struc:"int8"`
 	Flaps      float32 `struc:"float32,little"`
 	Aircraft   uint    `struc:"uint8"`
 	Speedbrake float32 `struc:"float32,little"`
@@ -125,4 +125,52 @@ func SendCTRL(conn *Conn, ctrl *CTRL) error {
 	}
 
 	return conn.Write(reqBuf.Bytes())
+}
+
+type POSI struct {
+	Gear        int8    `stuc:"int8"`
+	Latitude    float64 `struc:"float64,little"`
+	Longitude   float64 `struc:"float64,little"`
+	Altitude    float64 `struc:"float64,little"`
+	Pitch       float32 `struc:"float32,little"`
+	Roll        float32 `struc:"float32,little"`
+	TrueHeading float32 `struc:"float32,little"`
+	Aircraft    int8    `struc:"int8"`
+}
+
+func GetPOSI(conn *Conn, aircraft uint) (pos POSI, err error) {
+	type reqPacked struct {
+		Command   string `struc:"[4]uint8,little"`
+		Padding__ byte   `struc:"pad"`
+		Aircraft  uint   `struc:"uint8"`
+	}
+	type respPacked struct {
+		Header    string `struc:"[4]uint8,little"`
+		Padding__ byte   `struc:"pad"`
+		POSI
+	}
+
+	var reqBuf bytes.Buffer
+	if err := struc.Pack(&reqBuf, &reqPacked{
+		Command:  "GETP",
+		Aircraft: aircraft,
+	}); err != nil {
+		return pos, fmt.Errorf("pack request: %w", err)
+	}
+
+	if err := conn.Write(reqBuf.Bytes()); err != nil {
+		return pos, fmt.Errorf("send request: %w", err)
+	}
+
+	respBuf := make([]byte, 46)
+	if err := conn.Read(respBuf, len(respBuf)); err != nil {
+		return pos, fmt.Errorf("read response: %w", err)
+	}
+
+	var r respPacked
+	if err := struc.Unpack(bytes.NewReader(respBuf), &r); err != nil {
+		return pos, fmt.Errorf("unpack response: %w", err)
+	}
+
+	return r.POSI, nil
 }
