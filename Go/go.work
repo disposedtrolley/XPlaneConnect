@@ -3,6 +3,6 @@ go 1.23
 toolchain go1.23.0
 
 use (
-	examples/hello
+	./examples/status
 	xpc
 )

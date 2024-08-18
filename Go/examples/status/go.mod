@@ -1,3 +1,3 @@
-module hello
+module status
 
 replace xpc => ../../xpc

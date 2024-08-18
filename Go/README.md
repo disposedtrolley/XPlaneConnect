@@ -5,5 +5,5 @@
 ```shell
 go work use
 
-go run ./examples/hello
+go run ./examples/status
 ```
