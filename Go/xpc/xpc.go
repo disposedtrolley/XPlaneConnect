@@ -33,7 +33,7 @@ func (c *Conn) Read(out []byte, expectedBytes int) error {
 	if err != nil {
 		return err
 	}
-	if n != expectedBytes {
+	if expectedBytes != -1 && n != expectedBytes {
 		return fmt.Errorf("expected response length %d but got %d", expectedBytes, n)
 	}
 	return nil
@@ -173,6 +173,82 @@ func GetPOSI(conn *Conn, aircraft uint) (pos POSI, err error) {
 	}
 
 	return r.POSI, nil
+}
+
+func GetDREFs(conn *Conn, drefs ...string) (drefValues map[string]float32, err error) {
+	drefValues = make(map[string]float32)
+
+	type reqPacked struct {
+		Command   string `struc:"[4]uint8,little"`
+		Padding__ byte   `struc:"pad"`
+		Count     uint   `struc:"uint8"`
+	}
+
+	type drefReqPacked struct {
+		Size uint `struc:"uint8,little,sizeof=Str"`
+		Str  string
+	}
+
+	type respPacked struct {
+		Header    string `struc:"[4]uint8,little"`
+		Padding__ byte   `struc:"pad"`
+		Count     uint   `struc:"uint8"`
+	}
+
+	type drefRespPacked struct {
+		Count uint    `struc:"uint8"`
+		Value float32 `struc:"float32,little"`
+	}
+
+	var reqBuf bytes.Buffer
+	if err := struc.Pack(&reqBuf, &reqPacked{
+		Command: "GETD",
+		Count:   uint(len(drefs)),
+	}); err != nil {
+		return drefValues, fmt.Errorf("pack request header: %w", err)
+	}
+
+	for _, dref := range drefs {
+		var b bytes.Buffer
+		err := struc.Pack(&b, &drefReqPacked{
+			Str: dref,
+		})
+		if err != nil {
+			return drefValues, fmt.Errorf("pack dref %q: %w", dref, err)
+		}
+
+		reqBuf.Write(b.Bytes())
+	}
+
+	if err := conn.Write(reqBuf.Bytes()); err != nil {
+		return drefValues, fmt.Errorf("send request: %w", err)
+	}
+
+	respBuf := make([]byte, 16384)
+	if err := conn.Read(respBuf, -1); err != nil {
+		return drefValues, fmt.Errorf("read response: %w", err)
+	}
+
+	var r respPacked
+	if err := struc.Unpack(bytes.NewReader(respBuf), &r); err != nil {
+		return drefValues, fmt.Errorf("unpack response: %w", err)
+	}
+
+	offset := 6 // ignore the start of the buffer we've already unpacked
+	for i := 0; i < int(r.Count); i++ {
+		var dp drefRespPacked
+		if err := struc.Unpack(bytes.NewReader(respBuf[offset:]), &dp); err != nil {
+			return drefValues, fmt.Errorf("unpack response: %w", err)
+		}
+
+		// TODO support float arrays and other types
+
+		drefValues[drefs[i]] = dp.Value
+
+		offset += 1 + int(dp.Count)*4 // ignore the unpacked DREF value
+	}
+
+	return drefValues, nil
 }
 
 func Clamp(value, min, max float64) float64 {

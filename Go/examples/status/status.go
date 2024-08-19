@@ -19,7 +19,16 @@ func getAircraftStatus(conn *xpc.Conn, aircraft uint) {
 		panic(err)
 	}
 
-	fmt.Printf("%+v\n\n", posi)
+	fmt.Printf("%+v\n", posi)
+
+	values, err := xpc.GetDREFs(conn,
+		"sim/flightmodel/misc/h_ind",
+		"sim/cockpit2/gauges/indicators/heading_electric_deg_mag_pilot")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("%+v\n\n", values)
 }
 
 func main() {
